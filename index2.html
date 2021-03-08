@@ -1,0 +1,262 @@
+<!DOCTYPE html>
+<!-- saved from url=(0014)about:internet -->
+<html lang="en">
+
+<head>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <title>three.js webgl - interactive obj parts</title>
+
+    <meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+    <style>
+        body {
+            font-family: Monospace;
+            background-color: #f0f0f0;
+            margin: 0px;
+            overflow: hidden;
+        }
+    </style>
+</head>
+
+<body>
+
+
+<div id="bodyMesh" style="width: 1440px; height: 450px;"></div>
+<div id="meshButtons" style="margin:20px;width: 1440px; height: 230px;overflow: scroll"></div>
+    <script src="three.min.js"></script>
+    <script src="./stats.min.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/OBJLoader.js"></script>
+    <script src="https://threejs.org/examples/js/loaders/MTLLoader.js"></script>
+    <script src="./OrbitControls.js"></script>
+    <script>
+
+        var container, stats, skull;
+        var camera, scene, raycaster, renderer, controls;
+
+        var mouse = new THREE.Vector2(), INTERSECTED;
+        var radius = 10, theta = 0;
+
+        const delta = 6;
+        let startX;
+        let startY;
+        let meshList = [];
+
+        init();
+        animate();
+        function init() {
+
+            container = document.createElement('div');
+            document.getElementById('bodyMesh').appendChild(container);
+            const containerObj = document.getElementById('bodyMesh');
+            camera = new THREE.PerspectiveCamera(70, containerObj.clientWidth / containerObj.clientHeight, 1, 10000);
+            // camera.position.set(0.017453283658983087, 0.017453283658983087, 9.999984769132876);
+            // camera.position.set(19.8762322114355, 8.049234392755134, -2.458801662176975);
+            camera.position.set(-151.99576086764208, 579.291903040761, 1674.0312048930243);
+            scene = new THREE.Scene();
+
+            var light = new THREE.DirectionalLight(0xffffff, 1);
+            light.position.set(1, 1, 1).normalize();
+            scene.add(light);
+
+            var manager = new THREE.LoadingManager();
+            manager.onProgress = function (item, loaded, total) {
+                console.log(item, loaded, total);
+            };
+            var mtlLoader = new THREE.MTLLoader();
+            var url = "media/skull/Toyota_Hilux_SR5_MY21_FPS.mtl";
+            mtlLoader.load(url, function (materials) {
+
+                materials.preload();
+
+                //Manager from ThreeJs to track a loader and its status
+                var manager = new THREE.LoadingManager();
+                //Loader for Obj from Three.js
+                var loader = new THREE.OBJLoader(manager);
+
+                loader.setMaterials(materials);
+
+                loader.load('media/skull/Toyota_Hilux_SR5_MY21_FPS.obj', function (object) {
+
+                    console.log("object",object);
+
+                    object.traverse(function (child) {
+                        if (child instanceof THREE.Mesh) {
+                            // child.visible = true;
+                            console.log("Child", child);
+                            meshList.push({id: child.uuid, name: child.name});
+                            var btnShow = document.createElement("input");
+                            btnShow.setAttribute("type", "button");
+                            btnShow.setAttribute("class", "button");
+                            btnShow.setAttribute("id", child.uuid);
+                            btnShow.value = child.name;
+                            btnShow.onclick = (function(opt) {
+                                return function() {
+                                    showHideMesh(opt, child.visible);
+                                };
+                            })(child);
+
+                            document.getElementById('meshButtons').appendChild(btnShow);
+                            // child.material = new THREE.MeshPhongMaterial({ color: 0xFFFFFF });
+                        }
+                    });
+                    object.position.y = -2;
+                    skull = object;
+                    scene.add(skull);
+                });
+
+            });
+
+
+            // };
+            // var loader = new THREE.OBJLoader(manager);
+
+
+            raycaster = new THREE.Raycaster();
+
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setClearColor(0xf0f0f0);
+            renderer.setPixelRatio(window.devicePixelRatio);
+            renderer.setSize(containerObj.clientWidth, containerObj.clientHeight);
+            renderer.sortObjects = false;
+            container.appendChild(renderer.domElement);
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+
+            document.addEventListener('mouseup', onDocumentMouseUp, false);
+            document.addEventListener('mousedown', onDocumentMouseDown, false);
+
+            //
+
+            window.addEventListener('resize', onWindowResize, false);
+        }
+
+        function onWindowResize() {
+            const containerObj = document.getElementById('bodyMesh');
+            camera.aspect = containerObj.clientWidth / containerObj.clientHeight;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(containerObj.clientWidth, containerObj.clientHeight);
+
+        }
+
+        function onDocumentMouseDown(event) {
+
+            event.preventDefault();
+            startX = event.pageX;
+            startY = event.pageY;
+        }
+
+        function onDocumentMouseUp(event) {
+            const containerObj = document.getElementById('bodyMesh');
+            event.preventDefault();
+
+            const diffX = Math.abs(event.pageX - startX);
+            const diffY = Math.abs(event.pageY - startY);
+
+            if (diffX < delta && diffY < delta) {
+                mouse.x = (event.clientX / containerObj.clientWidth) * 2 - 1;
+                mouse.y = -(event.clientY / containerObj.clientHeight) * 2 + 1;
+                console.log("Click");
+            } else {
+                console.log("Drag");
+                isClicked = false;
+                console.log(isClicked);
+            }
+        }
+
+        //
+
+        function animate() {
+            requestAnimationFrame(animate);
+            controls.update();
+            render();
+
+        }
+
+        function render() {
+
+            // theta += 0.1;
+            //
+            // camera.position.x = radius * Math.sin(THREE.Math.degToRad(theta));
+            // camera.position.y = radius * Math.sin(THREE.Math.degToRad(theta));
+            // camera.position.z = radius * Math.cos(THREE.Math.degToRad(theta));
+            // camera.lookAt(scene.position);
+            //
+            // camera.updateMatrixWorld();
+
+            // find intersections
+            //if (skull){
+            raycaster.setFromCamera(mouse, camera);
+
+            var intersects = raycaster.intersectObjects(scene.children, true);
+
+            if (intersects.length > 0) {
+                if (INTERSECTED != intersects[0].object) {
+                    console.log(intersects[0].object)
+                    if (INTERSECTED) INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+
+                    INTERSECTED = intersects[0].object;
+                    INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+                    INTERSECTED.material.emissive.setHex(0xff0000);
+                }
+
+            } else {
+
+                if (INTERSECTED) INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+
+                INTERSECTED = null;
+                /** START
+                 * function to select mesh from component tree
+                 * Uncomment this in actual code
+                 */
+                /*skull.traverse(function (child){
+                    if (child instanceof THREE.Mesh) {
+                        if(child.name == 'uteeth'){
+                            if (INTERSECTED != child) {
+    
+                                if (INTERSECTED) INTERSECTED.material.emissive.setHex(INTERSECTED.currentHex);
+    
+                                INTERSECTED = child;
+                                INTERSECTED.currentHex = INTERSECTED.material.emissive.getHex();
+                                INTERSECTED.material.emissive.setHex(0xff0000);
+                            }
+                        }
+                    }
+                });*/
+                /** END
+                 *
+                 */
+
+            }
+            //}
+            renderer.render(scene, camera);
+
+        }
+
+        function showHideMesh(value, isVisible) {
+            const btnId = document.getElementById(value.uuid);
+            if(isVisible) {
+                btnId.style.backgroundColor = "#7c0707";
+                value.visible = false
+            }else {
+                btnId.style.backgroundColor = "#4CAF50";
+                value.visible = true
+            }
+        }
+
+    </script>
+</body>
+<style>
+    .button {
+        /*#7C0707 Red*/
+        background-color: #4CAF50; /* Green */
+        border: none;
+        color: white;
+        text-align: center;
+        text-decoration: none;
+        display: inline-block;
+        font-size: 16px;
+        margin: 4px 2px;
+        cursor: pointer;
+        padding: 10px 24px;
+    }
+</style>
+</html>
